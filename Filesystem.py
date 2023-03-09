@@ -1,3 +1,4 @@
+from datetime import datetime
 import hashlib
 import os
 from pathlib import Path
@@ -63,6 +64,16 @@ def getFirstFileInDirectory(dir_path):
             return path;
     return "";
 
+# Renames an existing file and prepends the datetime string to it.
+def prependDateToFilename(old_filename):
+    dirName = os.path.dirname(old_filename);
+    currentDateTime = datetime.utcnow().strftime("%m_%d_%YT%H_%M_%S_%fZ-");
+    baseName = os.path.basename(old_filename);
+    new_filename = os.path.join(dirName, currentDateTime + baseName);
+    os.rename(old_filename, new_filename);
+    return new_filename;
+
+
 # If there is more than one hdf5 file in the current directory, this function moves all .hdf5 files (other than the most recent one) from one directory to another, 
 # ensuring their sha256 hashes match before/after moving them.
 def moveDirectoryHDF5Files(directoryString, destinationFolder):
@@ -73,11 +84,12 @@ def moveDirectoryHDF5Files(directoryString, destinationFolder):
     print(directoryString);
     paths = sorted(Path(directoryString).iterdir(), key=os.path.getmtime); #get files in directory listed by last date modified from oldest to newest
     print(paths);
-    paths.pop(); #remove the oldest recent file
+    paths.pop(); # ignore the most recent file, which does not need to be archived.
     print(paths);
     for file in paths:
          filename = os.fsdecode(file)
          if filename.endswith(".hdf5"):
+             filename = prependDateToFilename(filename); # prepend the date of archival to the filename for easy lookup later.
              startingFilepath = filename;
              destinationFilepath = os.path.join(destinationFolder, os.path.basename(filename));
              originalHash = getFileHash(startingFilepath)
