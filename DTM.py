@@ -6,6 +6,23 @@ import random
 import shutil
 import string
 
+
+# CONSTANTS===============
+startUploadTime = 1800; # Hours for uploading: 8 PM - 6 AM
+endUploadTime = 600;
+# ========================
+
+# Returns an int with the 24-Hour 'Military Time' value ie (1300 = 1 PM). 
+def get24HourMilitaryTimeInt():
+    return (int(datetime.now().strftime('%H')) * 100) + int(datetime.now().strftime('%M'));
+
+# Returns boolean 'True' if script is executed within the local hours when data should be uploaded, else returns False
+def CheckIfInHoursOfOperation():
+    currTime = get24HourMilitaryTimeInt();
+    if(currTime >= startUploadTime and currTime <= endUploadTime):
+        return True;
+    return False;
+
 # Returns a random string of mixed uppper/lower case chars of N length.
 def get_random_string(length):
     letters = string.ascii_letters
@@ -72,7 +89,6 @@ def prependDateToFilename(old_filename):
     new_filename = os.path.join(dirName, currentDateTime + baseName);
     os.rename(old_filename, new_filename);
     return new_filename;
-
 
 # If there is more than one hdf5 file in the current directory, this function moves all .hdf5 files (other than the most recent one) from one directory to another, 
 # ensuring their sha256 hashes match before/after moving them.

@@ -1,14 +1,14 @@
-import Filesystem;
+import DTM;
 import os;
 import time;
 
 # Test of 'Filesystem.moveDirectoryHDF5Files()' function. Will return boolean True if tests passes, else False.
-def moveFileTest():
+def MoveFileTest():
 
     # Create dummy files/folders.
     testFileRandomChars = 30;
-    testStartDir = Filesystem.createRandomSubfolder(os.getcwd(), testFileRandomChars);
-    testEndDir = Filesystem.createRandomSubfolder(os.getcwd(), testFileRandomChars);
+    testStartDir = DTM.createRandomSubfolder(os.getcwd(), testFileRandomChars);
+    testEndDir = DTM.createRandomSubfolder(os.getcwd(), testFileRandomChars);
 
     print(testStartDir);
     print(testEndDir);
@@ -19,26 +19,26 @@ def moveFileTest():
     with open(os.path.join(testStartDir, "patient2.hdf5"), 'w') as fp:
         fp.write('test data2');
         fp.close();
-    if(Filesystem.countFilesPerFolder(testStartDir) != 2):
+    if(DTM.countFilesPerFolder(testStartDir) != 2):
         print('ERROR! Could not create necessary test files.');
         return False;
 
     # Run test.
-    Filesystem.moveDirectoryHDF5Files(Filesystem.convertWindowsToUnixFilepath(testStartDir), Filesystem.convertWindowsToUnixFilepath(testEndDir));
-    if(Filesystem.countFilesPerFolder(testStartDir) != 1 or Filesystem.countFilesPerFolder(testEndDir) != 1):
+    DTM.moveDirectoryHDF5Files(DTM.convertWindowsToUnixFilepath(testStartDir), DTM.convertWindowsToUnixFilepath(testEndDir));
+    if(DTM.countFilesPerFolder(testStartDir) != 1 or DTM.countFilesPerFolder(testEndDir) != 1):
         print('ERROR! Could not successfully move test files.');
         return False;
 
     # Cleanup.
-    Filesystem.removeAllFilesFromFolder(testStartDir);
-    Filesystem.removeAllFilesFromFolder(testEndDir);
+    DTM.removeAllFilesFromFolder(testStartDir);
+    DTM.removeAllFilesFromFolder(testEndDir);
 
-    if(Filesystem.countFilesPerFolder(testStartDir) != 0 or Filesystem.countFilesPerFolder(testEndDir) != 0):
+    if(DTM.countFilesPerFolder(testStartDir) != 0 or DTM.countFilesPerFolder(testEndDir) != 0):
         print('ERROR! Could not successfully remove test files.');
         return False;
 
-    Filesystem.removeDirectory(testStartDir);
-    Filesystem.removeDirectory(testEndDir);
+    DTM.removeDirectory(testStartDir);
+    DTM.removeDirectory(testEndDir);
 
     if(os.path.exists(testStartDir) or os.path.exists(testEndDir)):
         print("ERROR! Could not cleanup test directories properly");
@@ -47,13 +47,26 @@ def moveFileTest():
     return True;
 
 
+# Test of check for whether or not script is executing within the hours designated for remote data upload.
+def HoursOfOperationTest():
+    currTime = DTM.get24HourMilitaryTimeInt();
+    isInTime = (currTime >= DTM.startUploadTime and currTime <= DTM.endUploadTime);
+    return (isInTime == DTM.CheckIfInHoursOfOperation());
+
+
 # MAIN=========
 if __name__ == '__main__':
-    if(moveFileTest() == False):
-        print("moveFileTest FAILED");
+    if(MoveFileTest() == False):
+        print("MoveFileTest FAILED");
         exit(-2);
     else:
-        print("moveFileTest PASSED");
+        print("MoveFileTest PASSED");
     
+    if(HoursOfOperationTest() == False):
+        print('HoursOfOperationTest FAILED');
+        exit(-3);
+    else:
+        print("HoursOfOperationTest PASSED");
+
     print("All Tests PASSED");
     exit(0);
