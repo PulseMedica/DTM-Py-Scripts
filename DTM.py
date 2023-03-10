@@ -1,11 +1,15 @@
 from datetime import datetime
 import hashlib
+import lzma
+import mmap
 import os
 from pathlib import Path
 import random
 import shutil
 import string
-
+import subprocess
+import sys
+import time
 
 # CONSTANTS===============
 startUploadTime = 1800; # Hours for uploading: 8 PM - 6 AM
@@ -23,15 +27,50 @@ def isInHoursOfOperation():
         return True;
     return False;
 
+# Compress a given file to LZMA format, see: https://www.cs.unb.ca/~bremner/teaching/cs2613/books/python3-doc/library/lzma.html
+# Params: compression_level = standard is 6 but accepts 0-9, higher values are more compressed but are slower.
+def ReplaceFileWithLZMAFile(filename, compression_level=6):
+    try:
+        # filename will be saved as a '.xz' lzma compressed file
+        newFilename = os.path.join(str(os.path.dirname(filename)), str(os.path.splitext(os.path.basename(filename))[0]) + ".xz");
+
+        # Open original file as byte array, read bytes progressively and compress to .xz file.
+        fh = open(filename, "rb");
+        data = bytearray(mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ));
+        print(data);
+        obj = lzma.LZMACompressor(preset=compression_level);
+        bindata = bytearray(b'');
+        print(type(bindata));
+        for i in data:
+            b = i.to_bytes(1, sys.byteorder);
+            cmpd = obj.compress(b);
+            bindata += cmpd;
+        bindata += obj.flush();
+        fh.close();
+
+        # Write binary data to file, overwriting if necessary.
+        newFile = open(newFilename, "wb");
+        newFile.write(bindata);
+        newFile.close();
+
+        # Delete old uncompressed file, return new filename to indicate success.
+        os.remove(filename);
+        return newFilename;
+    
+    except Exception as e:
+        print("ERROR! ReplaceFileWithLZMAFile() threw exception: " + str(e));
+
+    return "";
+
 # Returns a random string of mixed uppper/lower case chars of N length.
-def get_random_string(length):
+def getRandomString(length):
     letters = string.ascii_letters
     result_str = ''.join(random.choice(letters) for i in range(length))
     return result_str;
 
 # Creates a subfolder named with random chars to prevent collision with existing folder.
 def createRandomSubfolder(startingDir, random_name_length):
-    randomizedTestSubfolderName = get_random_string(random_name_length);
+    randomizedTestSubfolderName = getRandomString(random_name_length);
     newpath = os.path.join(startingDir, randomizedTestSubfolderName);
     if not os.path.exists(newpath):
         os.makedirs(newpath);
@@ -105,7 +144,8 @@ def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
     for file in paths:
          filename = os.fsdecode(file)
          if filename.endswith(".hdf5"):
-             filename = prependDateToFilename(filename); # prepend the date of archival to the filename for easy lookup later.
+             filename = prependDateToFilename(filename);   # prepend the date of archival to the filename for easy lookup later.
+             filename = ReplaceFileWithLZMAFile(filename); # compress this file with lzma (as .xz file) and save new filename
              startingFilepath = filename;
              destinationFilepath = os.path.join(destinationFolder, os.path.basename(filename));
              originalHash = getFileHash(startingFilepath)

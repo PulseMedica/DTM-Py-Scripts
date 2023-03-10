@@ -1,33 +1,36 @@
 import DTM;
 import os;
+import random;
 import time;
 
 # Test of 'Filesystem.moveDirectoryHDF5FilesLocalToNAS()' function. Will return boolean True if tests passes, else False.
 def MoveFilesToNASTest():
 
     # Create dummy files/folders.
-    testFileRandomChars = 30;
-    testStartDir = DTM.createRandomSubfolder(os.getcwd(), testFileRandomChars);
-    testEndDir = DTM.createRandomSubfolder(os.getcwd(), testFileRandomChars);
+    testStartDir = DTM.createRandomSubfolder(os.getcwd(), random.randrange(12, 36));
+    testEndDir = DTM.createRandomSubfolder(os.getcwd(), random.randrange(12, 36));
 
     print(testStartDir);
     print(testEndDir);
     with open(os.path.join(testStartDir, "patient1.hdf5"), 'w') as fp:
-        fp.write('test data1');
+        fp.write(DTM.getRandomString(4096));
         fp.close();
     time.sleep(1.5); # pause between file creation so one file is noticably older than another.
     with open(os.path.join(testStartDir, "patient2.hdf5"), 'w') as fp:
-        fp.write('test data2');
+        fp.write(DTM.getRandomString(4096));
         fp.close();
     if(DTM.countFilesPerFolder(testStartDir) != 2):
         print('ERROR! Could not create necessary test files.');
         return False;
 
     # Run test.
-    DTM.moveDirectoryHDF5FilesLocalToNAS(DTM.convertWindowsToUnixFilepath(testStartDir), DTM.convertWindowsToUnixFilepath(testEndDir));
-    if(DTM.countFilesPerFolder(testStartDir) != 1 or DTM.countFilesPerFolder(testEndDir) != 1):
-        print('ERROR! Could not successfully move test files.');
-        return False;
+    try:
+        DTM.moveDirectoryHDF5FilesLocalToNAS(DTM.convertWindowsToUnixFilepath(testStartDir), DTM.convertWindowsToUnixFilepath(testEndDir));
+        if(DTM.countFilesPerFolder(testStartDir) != 1 or DTM.countFilesPerFolder(testEndDir) != 1):
+            print('ERROR! Could not successfully move test files.');
+            return False;
+    except Exception as e:
+        print("ERROR! DTM.moveDirectoryHDF5FilesLocalToNAS() threw exception: " + str(e));
 
     # Cleanup.
     DTM.removeAllFilesFromFolder(testStartDir);
