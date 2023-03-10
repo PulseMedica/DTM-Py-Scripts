@@ -1,3 +1,11 @@
+## Data Transfer Manager
+## written 3-10-2023
+## 
+## A collection of functions to backup and transfer
+## files from local to NAS to cloud storage, to be
+## imported and executed by scheduled tasks.
+## ====================================================
+
 from datetime import datetime
 import hashlib
 import lzma
