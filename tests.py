@@ -2,8 +2,8 @@ import DTM;
 import os;
 import time;
 
-# Test of 'Filesystem.moveDirectoryHDF5Files()' function. Will return boolean True if tests passes, else False.
-def MoveFileTest():
+# Test of 'Filesystem.moveDirectoryHDF5FilesLocalToNAS()' function. Will return boolean True if tests passes, else False.
+def MoveFilesToNASTest():
 
     # Create dummy files/folders.
     testFileRandomChars = 30;
@@ -24,7 +24,7 @@ def MoveFileTest():
         return False;
 
     # Run test.
-    DTM.moveDirectoryHDF5Files(DTM.convertWindowsToUnixFilepath(testStartDir), DTM.convertWindowsToUnixFilepath(testEndDir));
+    DTM.moveDirectoryHDF5FilesLocalToNAS(DTM.convertWindowsToUnixFilepath(testStartDir), DTM.convertWindowsToUnixFilepath(testEndDir));
     if(DTM.countFilesPerFolder(testStartDir) != 1 or DTM.countFilesPerFolder(testEndDir) != 1):
         print('ERROR! Could not successfully move test files.');
         return False;
@@ -51,16 +51,16 @@ def MoveFileTest():
 def HoursOfOperationTest():
     currTime = DTM.get24HourMilitaryTimeInt();
     isInTime = (currTime >= DTM.startUploadTime and currTime <= DTM.endUploadTime);
-    return (isInTime == DTM.CheckIfInHoursOfOperation());
+    return (isInTime == DTM.isInHoursOfOperation());
 
 
 # MAIN=========
 if __name__ == '__main__':
-    if(MoveFileTest() == False):
-        print("MoveFileTest FAILED");
+    if(MoveFilesToNASTest() == False):
+        print("MoveFilesToNASTest FAILED");
         exit(-2);
     else:
-        print("MoveFileTest PASSED");
+        print("MoveFilesToNASTest PASSED");
     
     if(HoursOfOperationTest() == False):
         print('HoursOfOperationTest FAILED');

@@ -17,7 +17,7 @@ def get24HourMilitaryTimeInt():
     return (int(datetime.now().strftime('%H')) * 100) + int(datetime.now().strftime('%M'));
 
 # Returns boolean 'True' if script is executed within the local hours when data should be uploaded, else returns False
-def CheckIfInHoursOfOperation():
+def isInHoursOfOperation():
     currTime = get24HourMilitaryTimeInt();
     if(currTime >= startUploadTime and currTime <= endUploadTime):
         return True;
@@ -92,7 +92,7 @@ def prependDateToFilename(old_filename):
 
 # If there is more than one hdf5 file in the current directory, this function moves all .hdf5 files (other than the most recent one) from one directory to another, 
 # ensuring their sha256 hashes match before/after moving them.
-def moveDirectoryHDF5Files(directoryString, destinationFolder):
+def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
     if(countFilesPerFolder(directoryString)==0 or (countFilesPerFolder(directoryString)==1 and getFirstFileInDirectory(directoryString).find(".hdf5") != -1)):
         print("No files to move! Ending early.");
         return;
@@ -117,3 +117,8 @@ def moveDirectoryHDF5Files(directoryString, destinationFolder):
          else:
              continue
     return filesToMove;
+
+
+# TO DO: finish
+def moveDirectoryHDF5FilesNAStoCloud(directoryString, destinationFolder):
+    return;
