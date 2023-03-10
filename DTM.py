@@ -37,10 +37,8 @@ def ReplaceFileWithLZMAFile(filename, compression_level=6):
         # Open original file as byte array, read bytes progressively and compress to .xz file.
         fh = open(filename, "rb");
         data = bytearray(mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ));
-        print(data);
         obj = lzma.LZMACompressor(preset=compression_level);
         bindata = bytearray(b'');
-        print(type(bindata));
         for i in data:
             b = i.to_bytes(1, sys.byteorder);
             cmpd = obj.compress(b);
@@ -136,11 +134,8 @@ def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
         print("No files to move! Ending early.");
         return;
     filesToMove=[];
-    print(directoryString);
     paths = sorted(Path(directoryString).iterdir(), key=os.path.getmtime); #get files in directory listed by last date modified from oldest to newest
-    print(paths);
     paths.pop(); # ignore the most recent file, which does not need to be archived.
-    print(paths);
     for file in paths:
          filename = os.fsdecode(file)
          if filename.endswith(".hdf5"):
