@@ -7,11 +7,11 @@
 ## ====================================================
 
 from datetime import datetime
-import hashlib
 import lzma
 import mmap
 import os
 from pathlib import Path
+import platform
 import random
 import shutil
 import string
@@ -22,6 +22,7 @@ import time
 # CONSTANTS===============
 startUploadTime = 1800; # Hours for uploading: 8 PM - 6 AM
 endUploadTime = 600;
+OStype = platform.system(); # will be one of: "Windows", "Linux", etc.
 # ========================
 
 # Returns an int with the 24-Hour 'Military Time' value ie (1300 = 1 PM). 
@@ -106,12 +107,6 @@ def convertWindowsToUnixFilepath(windowsFilepath):
     windowsFilepath = windowsFilepath.replace("\\","/");
     return windowsFilepath.replace("//","/");
 
-# Get the sha256 hash for a file.
-def getFileHash(fileToCheck):
-    with open(fileToCheck, 'rb') as fileStream:
-        data = fileStream.read();
-        return hashlib.sha256(data).hexdigest();
-
 # Returns an int count with the number of files in a folder
 def countFilesPerFolder(dir_path):
     count = 0;
@@ -135,6 +130,16 @@ def prependDateToFilename(old_filename):
     os.rename(old_filename, new_filename);
     return new_filename;
 
+# Uses safe copy functionality of specific OS's to transfer files.
+def platformSpecificMove(startPath, endPath):
+    # Use OS-specific safe move function
+    if(OStype == "Windows"): # Use robocopy on Windows
+        subprocess.call(["robocopy", os.path.dirname(startPath), os.path.dirname(endPath), os.path.basename(endPath), "/MOVE"]);
+    elif(OStype == "Linux"): # Use rsync on Linux
+        subprocess.call(["rsync", startPath, endPath, " -a"]);
+    else: # fallback to using the unsafe Python shell utils
+        shutil.move(startPath,endPath);
+
 # If there is more than one hdf5 file in the current directory, this function moves all .hdf5 files (other than the most recent one) from one directory to another, 
 # ensuring their sha256 hashes match before/after moving them.
 def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
@@ -151,12 +156,7 @@ def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
              filename = ReplaceFileWithLZMAFile(filename); # compress this file with lzma (as .xz file) and save new filename
              startingFilepath = filename;
              destinationFilepath = os.path.join(destinationFolder, os.path.basename(filename));
-             originalHash = getFileHash(startingFilepath)
-             shutil.move(startingFilepath,destinationFilepath);
-             if(getFileHash(destinationFilepath)!=originalHash):
-                print("ERROR! File checksums do not match");
-             else:
-                print("File successfully moved: " + destinationFilepath);
+             platformSpecificMove(convertWindowsToUnixFilepath(startingFilepath), convertWindowsToUnixFilepath(destinationFilepath));
          else:
              continue
     return filesToMove;
