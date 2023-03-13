@@ -7,6 +7,7 @@
 ## ====================================================
 
 from datetime import datetime
+from dateutil import tz
 import lzma
 import mmap
 import os
@@ -25,9 +26,45 @@ endUploadTime = 600;
 OStype = platform.system(); # will be one of: "Windows", "Linux", etc.
 # ========================
 
+# Creates a logging file for the current date time iff one does not exist.
+def ensureLoggingFileIsCreated():
+    logFilename = getCurrentLogfileName();
+    if(os.path.exists(logFilename) == False):
+        f = open(logFilename, "x");
+        f.close();
+
+# Writes a line to the logger with a timestamp.
+def writeToLog(str):
+    ensureLoggingFileIsCreated();
+    logFile = open(getCurrentLogfileName(), 'a');
+    strToWrite = getCurrentDateTimeStringForLog() + "\t---\t" + str + "\n";
+    logFile.write(strToWrite);
+    print(strToWrite);
+    logFile.close();
+
+# Returns the current UTC date string formatted appropriately for use in a filename.
+def getCurrentDateStringForFilename():
+    dt = datetime.now(tz.tzlocal());
+    return dt.strftime("%Y_%m_%d-");
+
+# Returns the current UTC datetime string formatted appropriately for use in a log file line.
+def getCurrentDateTimeStringForLog():
+    dt = datetime.now(tz.tzlocal());
+    return dt.strftime("%Y-%m-%dT%H:%M:%S:%f%zZ");
+
+# Returns the current UTC datetime string formatted appropriately for use in a filename.
+def getCurrentDateTimeStringForFilename():
+    dt = datetime.now(tz.tzlocal());
+    return dt.strftime("%Y_%m_%dT%H_%M_%S_%f%z-");
+
+# Returns a string for the current log filename formatted as 'Year_Month_Day-DTM_log.txt"
+def getCurrentLogfileName():
+    return getCurrentDateStringForFilename() + "DTM_log.txt";
+
 # Returns an int with the 24-Hour 'Military Time' value ie (1300 = 1 PM). 
 def get24HourMilitaryTimeInt():
-    return (int(datetime.now().strftime('%H')) * 100) + int(datetime.now().strftime('%M'));
+    dt = datetime.now(tz.tzlocal());
+    return (int(dt.strftime('%H')) * 100) + int(dt.strftime('%M'));
 
 # Returns boolean 'True' if script is executed within the local hours when data should be uploaded, else returns False
 def isInHoursOfOperation():
@@ -38,7 +75,9 @@ def isInHoursOfOperation():
 
 # Compress a given file to LZMA format, see: https://www.cs.unb.ca/~bremner/teaching/cs2613/books/python3-doc/library/lzma.html
 # Params: compression_level = standard is 6 but accepts 0-9, higher values are more compressed but are slower.
+# Returns: filename string of compressed version of input file.
 def ReplaceFileWithLZMAFile(filename, compression_level=6):
+    returnedFilename = "";
     try:
         # filename will be saved as a '.xz' lzma compressed file
         newFilename = os.path.join(str(os.path.dirname(filename)), str(os.path.splitext(os.path.basename(filename))[0]) + ".xz");
@@ -62,12 +101,12 @@ def ReplaceFileWithLZMAFile(filename, compression_level=6):
 
         # Delete old uncompressed file, return new filename to indicate success.
         os.remove(filename);
-        return newFilename;
+        returnedFilename = newFilename;
     
     except Exception as e:
-        print("ERROR! ReplaceFileWithLZMAFile() threw exception: " + str(e));
-
-    return "";
+        writeToLog("ERROR! ReplaceFileWithLZMAFile() threw exception: " + str(e));
+    
+    return returnedFilename;
 
 # Returns a random string of mixed uppper/lower case chars of N length.
 def getRandomString(length):
@@ -88,7 +127,7 @@ def removeDirectory(dir):
     try:
         os.rmdir(dir);
     except Exception as e:
-        print('Failed to delete %s. Reason: %s' % (dir, e))
+        writeToLog('Failed to delete %s. Reason: %s' % (dir, str(e)));
         
 # Removes any existing files from the given directory.
 def removeAllFilesFromFolder(dir):
@@ -100,7 +139,7 @@ def removeAllFilesFromFolder(dir):
             elif os.path.isdir(file_path):
                 shutil.rmtree(file_path)
         except Exception as e:
-            print('Failed to delete %s. Reason: %s' % (file_path, e))
+            writeToLog('Failed to delete %s. Reason: %s' + str(e));
 
 # Removes all '\\' chars from a file path string that might cause errors.
 def convertWindowsToUnixFilepath(windowsFilepath):
@@ -115,6 +154,7 @@ def countFilesPerFolder(dir_path):
             count += 1;
     return count;
 
+# Return only the first file found using the os.listdir() function if there are any found, else return an empty string.
 def getFirstFileInDirectory(dir_path):
     for path in os.listdir(dir_path):
         if os.path.isfile(os.path.join(dir_path, path)):
@@ -124,27 +164,35 @@ def getFirstFileInDirectory(dir_path):
 # Renames an existing file and prepends the datetime string to it.
 def prependDateToFilename(old_filename):
     dirName = os.path.dirname(old_filename);
-    currentDateTime = datetime.utcnow().strftime("%m_%d_%YT%H_%M_%S_%fZ-");
+    currentDateTime = getCurrentDateTimeStringForFilename();
     baseName = os.path.basename(old_filename);
     new_filename = os.path.join(dirName, currentDateTime + baseName);
     os.rename(old_filename, new_filename);
     return new_filename;
 
-# Uses safe copy functionality of specific OS's to transfer files.
+# Uses safe copy functionality of specific OSes to transfer files. NOTE: Exception handling is tricky here since certain functions like robocopy 
+# return a non-zero exit code on successful file transfer (ie, 1 = all files successfully transferred. 
+# see: https://learn.microsoft.com/en-us/troubleshoot/windows-server/backup-and-storage/return-codes-used-robocopy-utility).
 def platformSpecificMove(startPath, endPath):
-    # Use OS-specific safe move function
-    if(OStype == "Windows"): # Use robocopy on Windows
-        subprocess.call(["robocopy", os.path.dirname(startPath), os.path.dirname(endPath), os.path.basename(endPath), "/MOVE"]);
-    elif(OStype == "Linux"): # Use rsync on Linux
-        subprocess.call(["rsync", startPath, endPath, " -a"]);
-    else: # fallback to using the unsafe Python shell utils
-        shutil.move(startPath,endPath);
+        fp = open(getCurrentLogfileName(), "a");
+        if(OStype == "Windows"): # Use robocopy on Windows
+            subprocess.call(["robocopy", convertWindowsToUnixFilepath(os.path.dirname(startPath)), 
+                                                 convertWindowsToUnixFilepath(os.path.dirname(endPath)), 
+                                                 os.path.basename(endPath), "/MOVE"],stdout=fp,stderr=fp);
+        elif(OStype == "Linux"): # Use rsync on Linux
+             subprocess.call(["rsync", convertWindowsToUnixFilepath(startPath), convertWindowsToUnixFilepath(endPath), " -a"],stdout=fp,stderr=fp);
+        else: # fallback to using the unsafe Python shell utils
+            shutil.move(startPath,endPath);
+            writeToLog("platformSpecificMove() successfully moved from " + convertWindowsToUnixFilepath(startPath) + 
+                       " to " + convertWindowsToUnixFilepath(endPath) + " via shutil.move()");
+        fp.close();
 
 # If there is more than one hdf5 file in the current directory, this function moves all .hdf5 files (other than the most recent one) from one directory to another, 
 # ensuring their sha256 hashes match before/after moving them.
 def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
+    writeToLog("Beginning process for moving files from local to NAS...");
     if(countFilesPerFolder(directoryString)==0 or (countFilesPerFolder(directoryString)==1 and getFirstFileInDirectory(directoryString).find(".hdf5") != -1)):
-        print("No files to move! Ending early.");
+        writeToLog("No files to move! Ending early.");
         return;
     filesToMove=[];
     paths = sorted(Path(directoryString).iterdir(), key=os.path.getmtime); #get files in directory listed by last date modified from oldest to newest
@@ -152,13 +200,19 @@ def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
     for file in paths:
          filename = os.fsdecode(file)
          if filename.endswith(".hdf5"):
+             destinationFilepath = os.path.join(destinationFolder, os.path.basename(filename));
+             writeToLog("Beginning archival process for file: " + filename);            
              filename = prependDateToFilename(filename);   # prepend the date of archival to the filename for easy lookup later.
+             writeToLog("Changing origin file name to: " + str(filename) + " and compressing with LZMA...");
              filename = ReplaceFileWithLZMAFile(filename); # compress this file with lzma (as .xz file) and save new filename
              startingFilepath = filename;
-             destinationFilepath = os.path.join(destinationFolder, os.path.basename(filename));
+             writeToLog("Compression finished. Moving file " + str(filename) + "...");
+             destinationFilepath = os.path.join(destinationFolder, os.path.basename(filename)); # update destination with new .xz filename.
              platformSpecificMove(convertWindowsToUnixFilepath(startingFilepath), convertWindowsToUnixFilepath(destinationFilepath));
+             writeToLog("Move finished. File is archived and stored at: " + convertWindowsToUnixFilepath(destinationFilepath));
          else:
              continue
+         writeToLog("All files moved from local to NAS.");
     return filesToMove;
 
 

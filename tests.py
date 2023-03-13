@@ -4,10 +4,10 @@
 ## A collection of unit tests for DTM functions.
 ## =============================================
 
-import DTM;
-import os;
-import random;
-import time;
+import DTM
+import os
+import random
+import time
 
 # Test of 'Filesystem.moveDirectoryHDF5FilesLocalToNAS()' function. Will return boolean True if tests passes, else False.
 def MoveFilesToNASTest():
@@ -32,11 +32,12 @@ def MoveFilesToNASTest():
     # Run test.
     try:
         DTM.moveDirectoryHDF5FilesLocalToNAS(DTM.convertWindowsToUnixFilepath(testStartDir), DTM.convertWindowsToUnixFilepath(testEndDir));
-        if(DTM.countFilesPerFolder(testStartDir) != 1 or DTM.countFilesPerFolder(testEndDir) != 1):
-            print('ERROR! Could not successfully move test files.');
-            return False;
     except Exception as e:
         print("ERROR! DTM.moveDirectoryHDF5FilesLocalToNAS() threw exception: " + str(e));
+
+    if(DTM.countFilesPerFolder(testStartDir) != 1 or DTM.countFilesPerFolder(testEndDir) != 1):
+        print('ERROR! Could not successfully move test files.');
+        return False;
 
     # Cleanup.
     DTM.removeAllFilesFromFolder(testStartDir);
