@@ -207,7 +207,7 @@ def platformSpecificFolderMove(startPath, endPath):
 # If there is more than one hdf5 file in the current directory, this function moves all .hdf5 files (other than the most recent one) from one directory to another, 
 # ensuring their sha256 hashes match before/after moving them.
 def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
-    writeToLog("Beginning process for moving files from local to NAS...");
+    writeToLog("Beginning process for moving files from local to NAS for directories " + directoryString + ", " + destinationFolder + "...");
     if(countFilesPerFolder(directoryString)==0 or (countFilesPerFolder(directoryString)==1 and getFirstFileInDirectory(directoryString).find(".hdf5") != -1)):
         writeToLog("No files to move! Ending early.");
         return;
@@ -232,6 +232,6 @@ def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
 
 # Move all files from given directory to another on the remote server.
 def moveDirectoryHDF5FilesNAStoCloud(directoryString, destinationFolder):
-    writeToLog("Beginning process for moving all files from NAS to remote...");
+    writeToLog("Beginning process for moving all files from NAS to remote for directories " + directoryString + ", " + destinationFolder + "...");
     platformSpecificFolderMove(convertWindowsToUnixFilepath(directoryString), convertWindowsToUnixFilepath(destinationFolder));
     writeToLog("All files moved from NAS to Remote.");
