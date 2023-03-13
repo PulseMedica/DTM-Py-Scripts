@@ -99,7 +99,7 @@ def ReplaceFileWithLZMAFile(filename, compression_level=6):
         newFile.write(bindata);
         newFile.close();
 
-        # Delete old uncompressed file, return new filename to indicate success.
+        # Delete old uncompressed file, return new filename to indicate success.        
         os.remove(filename);
         returnedFilename = newFilename;
     
@@ -125,21 +125,23 @@ def createRandomSubfolder(startingDir, random_name_length):
 # Removes an existing directory. NOTE: the directory must be empty.
 def removeDirectory(dir):
     try:
-        os.rmdir(dir);
+        if(os.path.exists(dir)):
+            os.rmdir(dir);
     except Exception as e:
         writeToLog('Failed to delete %s. Reason: %s' % (dir, str(e)));
         
 # Removes any existing files from the given directory.
 def removeAllFilesFromFolder(dir):
-    for filename in os.listdir(dir):
-        file_path = os.path.join(dir, filename)
-        try:
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        except Exception as e:
-            writeToLog('Failed to delete %s. Reason: %s' + str(e));
+    if(os.path.exists(dir)):
+        for filename in os.listdir(dir):
+            file_path = os.path.join(dir, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                writeToLog('Failed to delete %s. Reason: %s' + str(e));
 
 # Removes all '\\' chars from a file path string that might cause errors.
 def convertWindowsToUnixFilepath(windowsFilepath):
@@ -149,9 +151,10 @@ def convertWindowsToUnixFilepath(windowsFilepath):
 # Returns an int count with the number of files in a folder
 def countFilesPerFolder(dir_path):
     count = 0;
-    for path in os.listdir(dir_path):
-        if os.path.isfile(os.path.join(dir_path, path)):
-            count += 1;
+    if(os.path.exists(dir_path)):
+        for path in os.listdir(dir_path):
+            if os.path.isfile(os.path.join(dir_path, path)):
+                count += 1;
     return count;
 
 # Return only the first file found using the os.listdir() function if there are any found, else return an empty string.
@@ -170,7 +173,7 @@ def prependDateToFilename(old_filename):
     os.rename(old_filename, new_filename);
     return new_filename;
 
-# Uses safe copy functionality of specific OSes to transfer files. NOTE: Exception handling is tricky here since certain functions like robocopy 
+# Uses safe copy functionality of specific OSes to transfer a single file. NOTE: Exception handling is tricky here since certain functions like robocopy 
 # return a non-zero exit code on successful file transfer (ie, 1 = all files successfully transferred. 
 # see: https://learn.microsoft.com/en-us/troubleshoot/windows-server/backup-and-storage/return-codes-used-robocopy-utility).
 def platformSpecificMove(startPath, endPath):
@@ -187,6 +190,20 @@ def platformSpecificMove(startPath, endPath):
                        " to " + convertWindowsToUnixFilepath(endPath) + " via shutil.move()");
         fp.close();
 
+# Move every file in one folder to another using platform-specific robot file move functionality.
+def platformSpecificFolderMove(startPath, endPath):
+        fp = open(getCurrentLogfileName(), "a");
+        if(OStype == "Windows"): # Use robocopy on Windows
+            subprocess.call(["robocopy", startPath, endPath, "/MOV"],stdout=fp,stderr=fp);
+        elif(OStype == "Linux"): # Use rsync on Linux
+             subprocess.call(["rsync", convertWindowsToUnixFilepath(startPath), convertWindowsToUnixFilepath(endPath), " -a"],stdout=fp,stderr=fp);
+        else: # fallback to using the unsafe Python shell utils
+            shutil.move(startPath,endPath);
+            writeToLog("platformSpecificMove() successfully moved from " + convertWindowsToUnixFilepath(startPath) + 
+                       " to " + convertWindowsToUnixFilepath(endPath) + " via shutil.move()");
+        fp.close();
+
+
 # If there is more than one hdf5 file in the current directory, this function moves all .hdf5 files (other than the most recent one) from one directory to another, 
 # ensuring their sha256 hashes match before/after moving them.
 def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
@@ -194,7 +211,6 @@ def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
     if(countFilesPerFolder(directoryString)==0 or (countFilesPerFolder(directoryString)==1 and getFirstFileInDirectory(directoryString).find(".hdf5") != -1)):
         writeToLog("No files to move! Ending early.");
         return;
-    filesToMove=[];
     paths = sorted(Path(directoryString).iterdir(), key=os.path.getmtime); #get files in directory listed by last date modified from oldest to newest
     paths.pop(); # ignore the most recent file, which does not need to be archived.
     for file in paths:
@@ -213,9 +229,9 @@ def moveDirectoryHDF5FilesLocalToNAS(directoryString, destinationFolder):
          else:
              continue
          writeToLog("All files moved from local to NAS.");
-    return filesToMove;
 
-
-# TO DO: finish
+# Move all files from given directory to another on the remote server.
 def moveDirectoryHDF5FilesNAStoCloud(directoryString, destinationFolder):
-    return;
+    writeToLog("Beginning process for moving all files from NAS to remote...");
+    platformSpecificFolderMove(convertWindowsToUnixFilepath(directoryString), convertWindowsToUnixFilepath(destinationFolder));
+    writeToLog("All files moved from NAS to Remote.");
